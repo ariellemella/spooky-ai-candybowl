@@ -3,15 +3,15 @@ import os
 
 from viam.robot.client import RobotClient
 from viam.rpc.dial import Credentials, DialOptions
-from viam.components.board import Board
 from viam.components.motor import Motor
-from viam.components.camera import Camera
 from viam.services.vision import VisionClient
 
 
 #Env Variables for Robot Connectivity 
 robot_secret = os.getenv('ROBOT_SECRET') 
 robot_address = os.getenv('ROBOT_ADDRESS') 
+
+COSTUMES = ["witch", "mummy", "vampire", "cowboy", "zombie"]
 
 #Robot Connectivity 
 async def connect():
@@ -34,13 +34,16 @@ async def jumpscare(dcmotor):
     await dcmotor.go_for(rpm=-70, revolutions=1)
 
 
-async def trickOrTreater(dcmotor, detections_test):
+async def trickOrTreater(dcmotor, detections_test, costume_det):
     #Searching for trick or treaters to scare! 
     while True: 
-        detections = await detections_test.get_detections_from_camera("pumpcam")
+        people_detections = await detections_test.get_detections_from_camera("pumpcam")
+        costume_detections = await costume_det.get_detections_from_camera("pumpcam")
         seen = False 
 
-        for d in detections:
+        print ("no one is around to take some candy")
+
+        for d in people_detections:
             if d.confidence > 0.6:
                 if d.class_name == "Person":
                     print("gotcha!")
@@ -48,7 +51,11 @@ async def trickOrTreater(dcmotor, detections_test):
         if seen: 
             await jumpscare(dcmotor)
         else: 
-            print ("no one is around to take some candy")
+           for d in costume_detections:
+            if d.confidence > 0.6:
+                if d.class_name in COSTUMES:
+                    print("happy Halloween! take a treat!")
+                    seen = True
 
 
 async def main():
@@ -57,8 +64,9 @@ async def main():
     #Components and Services 
     dcmotor = Motor.from_robot(robot, "dcmotor")
     detections_test = VisionClient.from_robot(robot, "detections_test")
+    costume_det = VisionClient.from_robot(robot, "costume_det")
 
-    await trickOrTreater(dcmotor, detections_test)
+    await trickOrTreater(dcmotor, detections_test, costume_det)
 
     await robot.close()
 
